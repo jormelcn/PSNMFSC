@@ -38,10 +38,10 @@ def dgM(M, gamma):
         all_values[i,:] += dg(M[i,:] - M[i+1,:], gamma)
     return all_values
 
-def gS(S, gamma, org_size):
-    if len(org_size) == 2:
+def gS(S, gamma, S_size):
+    if len(S_size) == 2:
         return 0
-    S = S.T.reshape(org_size)
+    S = S.T.reshape(S_size)
     all_sum = 0
     for i in range(1, S.shape[0]-1):
         all_sum += g(S[i,:,:] - S[i-1,:,:], gamma).sum()
@@ -51,10 +51,10 @@ def gS(S, gamma, org_size):
         all_sum += g(S[:,j,:] - S[:,j+1,:], gamma).sum()
     return all_sum
 
-def hS(S, gamma, org_size):
-    if len(org_size) == 2:
+def hS(S, gamma, S_size):
+    if len(S_size) == 2:
         return 0
-    S = S.T.reshape(org_size)
+    S = S.T.reshape(S_size)
     all_values = np.zeros_like(S)
     all_values[0 ,:,:] = h(0, gamma)
     all_values[-1,:,:] = h(0, gamma)
@@ -68,10 +68,10 @@ def hS(S, gamma, org_size):
         all_values[:,i,:] += h(S[:,i,:] - S[:,i+1,:], gamma)
     return all_values.reshape([-1, all_values.shape[2]]).T
 
-def dgS(S, gamma, org_size):
-    if len(org_size) == 2:
+def dgS(S, gamma, S_size):
+    if len(S_size) == 2:
         return 0
-    S = S.T.reshape(org_size)
+    S = S.T.reshape(S_size)
     all_values = np.zeros_like(S)
     all_values[0 ,:,:] = dg(0, gamma)
     all_values[-1,:,:] = dg(0, gamma)
@@ -95,8 +95,8 @@ def initM(R, p):
     M = R.T[index].T
     return M
 
-def D(R, M, S, alpha, betha, gamma_M, gamma_S, org_size):
-    return Euc(R, M, S) + alpha*gM(M, gamma_M) + betha*gS(S, gamma_S, org_size)
+def D(R, M, S, alpha, betha, gamma_M, gamma_S, S_size):
+    return Euc(R, M, S) + alpha*gM(M, gamma_M) + betha*gS(S, gamma_S, S_size)
 
 def newM(R, M, S, alpha, betha, gamma_M, gamma_S):
     M_hM = M*hM(M, gamma_M)
@@ -165,9 +165,11 @@ def isIterable(iterations):
     return is_iterable
 
 def unmix(R, p, Sp, alpha, gamma_M, betha=0, gamma_S=1, delta=1, tol=1e-4, iterations = 10000):
-    org_shape = R.shape
-    if len(org_shape) == 3:
+    if len(R.shape) == 3:
+        S_shape = np.array([R.shape[0], R.shape[1], p])
         R = R.reshape(-1, R.shape[2]).T
+    else:
+        S_shape = np.array([p, R.shape[1]])
     M = initM(R, p)
     S = initS(R, p)
     D_old = np.inf
@@ -176,14 +178,14 @@ def unmix(R, p, Sp, alpha, gamma_M, betha=0, gamma_S=1, delta=1, tol=1e-4, itera
     for i in iterations:
         M = newM(R, M, S, alpha, betha, gamma_M, gamma_S)        
         Ra, Ma = augmentRM(R, M, delta)
-        S = newS(Ra, Ma, S, alpha, betha, gamma_M, gamma_S, org_shape)
+        S = newS(Ra, Ma, S, alpha, betha, gamma_M, gamma_S, S_shape)
         S = asignSparseness(S, Sp)        
-        D_new = D(R, M, S, alpha, betha, gamma_M, gamma_S, org_shape)
+        D_new = D(R, M, S, alpha, betha, gamma_M, gamma_S, S_shape)
         hist[i] = D_new
         if D_old - D_new <= tol:
             break
         D_old = D_new
-    if len(org_shape) == 3:
-        S = S.T.reshape(org_shape)
+    if len(S_shape) == 3:
+        S = S.T.reshape(S_shape)
     return M, S, hist[0:i+1]
 
